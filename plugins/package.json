@@ -1,0 +1,15 @@
+{
+  "dependencies": {
+    "pg": "^8.11.1"
+  },
+  "name": "js-plugins",
+  "version": "1.0.0",
+  "description": "Building a Kong Gateway Plugin with JavaScript",
+  "main": "clacks.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "david.santafe@gosocket.net",
+  "license": "ISC"
+}

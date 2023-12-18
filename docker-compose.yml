@@ -1,0 +1,103 @@
+version: '3'
+services:  
+  kong-database:
+    image: postgres:13
+    container_name: kong-database
+    ports:
+      - $POSTGRES_PORT:5432    
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}      
+    networks:
+      - kong-net
+    volumes:
+      - "db-data-kong-postgres:/var/lib/postgresql/data"
+      - "/etc/localtime:/etc/localtime:ro"
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 3s
+        max_attempts: 10
+        window: 60s
+  kong-migrations:
+    image: kong/kong-gateway:3.3.1.0
+    container_name: kong-migrations
+    environment:
+      - KONG_DATABASE=${KONG_DATABASE}
+      - KONG_PG_HOST=${KONG_PG_HOST}
+      - KONG_PG_USER=${KONG_PG_USER}
+      - KONG_PG_PASSWORD=${KONG_PG_PASSWORD}
+      - KONG_PG_PORT=${KONG_PG_PORT}
+      - KONG_PG_DATABASE=${KONG_PG_DATABASE}
+      #- KONG_PG_SSL=${KONG_PG_SSL}
+    command: kong migrations bootstrap
+    networks:
+      - kong-net
+    depends_on:
+      - kong-database
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 3s
+        max_attempts: 10
+        window: 60s
+  kong-gateway:
+    build: .
+    container_name: kong-gateway
+    environment:
+      - KONG_DATABASE=${KONG_DATABASE}
+      - KONG_PG_HOST=${KONG_PG_HOST}
+      - KONG_PG_USER=${KONG_PG_USER}
+      - KONG_PG_PASSWORD=${KONG_PG_PASSWORD}
+      - KONG_PG_PORT=${KONG_PG_PORT}
+      - KONG_PG_DATABASE=${KONG_PG_DATABASE}
+      #- KONG_PG_SSL=${KONG_PG_SSL}
+      - KONG_PROXY_ACCESS_LOG=${KONG_PROXY_ACCESS_LOG}
+      - KONG_ADMIN_ACCESS_LOG=${KONG_ADMIN_ACCESS_LOG}
+      - KONG_PROXY_ERROR_LOG=${KONG_PROXY_ERROR_LOG}
+      - KONG_ADMIN_ERROR_LOG=${KONG_ADMIN_ERROR_LOG}
+      - KONG_PROXY_LISTEN=${KONG_PROXY_LISTEN}
+      - KONG_ADMIN_LISTEN=${KONG_ADMIN_LISTEN}
+      - KONG_ADMIN_GUI_URL=${KONG_ADMIN_GUI_URL}
+      # Enable the JS plugin server
+      - KONG_PLUGINSERVER_NAMES= js
+      - KONG_PLUGINSERVER_JS_SOCKET= /usr/local/kong/js_pluginserver.sock
+      - KONG_PLUGINSERVER_JS_START_CMD= /usr/local/bin/kong-js-pluginserver -v --plugins-directory /usr/local/kong/js-plugins
+      - KONG_PLUGINSERVER_JS_QUERY_CMD= /usr/local/bin/kong-js-pluginserver --plugins-directory /usr/local/kong/js-plugins --dump-all-plugins
+      # Allow plugins to be used.
+      - KONG_PLUGINS=${KONG_PLUGINS}
+    ports:
+      - $KONG_PROXY_PORT:8000
+      - $KONG_PROXY_SSL_PORT:8443
+      - $KONG_PROXY_ADMIN_API_PORT:8001
+      - $KONG_PROXY_ADMIN_SSL_API_PORT:8444
+      - $KONG_ADMIN_GUI_PORT:8002
+      - $KONG_ADMIN_GUI_SSL_PORT:8445
+    networks:
+      - kong-net
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/etc/timezone:/etc/timezone:ro"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 3s
+        max_attempts: 10
+        window: 60s
+  pgadmin4:
+    image: dpage/pgadmin4
+    container_name: pgadmin4
+    networks:
+      - kong-net
+    ports:
+      - "${PGADMIN_PORT}:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+volumes:
+  db-data-kong-postgres:
+networks:
+  kong-net:
+    external: false
